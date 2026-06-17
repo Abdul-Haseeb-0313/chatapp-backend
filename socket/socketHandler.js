@@ -63,6 +63,43 @@ function socketHandler(io) {
     }
 
     // ========================
+    // REQUEST ONLINE STATUS (for reconnection / refresh)
+    // ========================
+    socket.on("get_online_users", async () => {
+      try {
+        // Get all chats the user is part of
+        const userChats = await prisma.chat_participants.findMany({
+          where: { user_id: userId },
+        });
+
+        if (userChats.length === 0) return;
+
+        const chatIds = userChats.map((c) => c.chat_id);
+
+        // Get all other participants in those chats
+        const otherParticipants = await prisma.chat_participants.findMany({
+          where: {
+            chat_id: { in: chatIds },
+            user_id: { not: userId },
+          },
+        });
+
+        // Filter to only those currently online
+        const onlineOthers = otherParticipants
+          .filter((p) => onlineUsers.has(p.user_id))
+          .map((p) => p.user_id);
+
+        // Remove duplicates (if user is in multiple chats with the same person)
+        const uniqueOnline = [...new Set(onlineOthers)];
+
+        // Send back to the requesting socket only
+        socket.emit("online_users_list", { userIds: uniqueOnline });
+      } catch (err) {
+        console.error("get_online_users error:", err);
+      }
+    });
+
+    // ========================
     // SEND MESSAGE
     // ========================
     socket.on("send_message", async (data) => {
@@ -103,7 +140,7 @@ function socketHandler(io) {
           senderName: savedMessage.users.username,
           content: savedMessage.content,
           createdAt: savedMessage.created_at,
-          tempId: data.tempId, 
+          tempId: data.tempId,
         };
 
         io.to(`chat_${data.chatId}`).emit("receive_message", messagePayload);
