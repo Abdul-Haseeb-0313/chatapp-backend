@@ -10,8 +10,11 @@ const socketHandler = require("./socket/socketHandler");
 
 const app = express();
 
-app.use(cors());
+app.use(cors({origin: "*"}));
 app.use(express.json());
+
+
+app.get("/health", (req, res) => res.status(200).send("ok"));
 
 app.use("/auth", authRoutes);
 app.use("/chat", chatRoutes);
@@ -32,6 +35,6 @@ app.set("io", io);
 // Pass io to socket handler
 socketHandler(io);
 
-server.listen(3000, () => {
+server.listen(process.env.PORT || 3000, () => {
   console.log("Server running");
 });
