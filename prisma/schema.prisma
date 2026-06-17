@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model chat_read_status {
+  id            Int      @id @default(autoincrement())
+  chat_id       Int
+  user_id       Int
+  last_read_at  DateTime @default(now()) @db.Timestamp(6)
+
+  chats chats @relation(fields: [chat_id], references: [id], onDelete: Cascade)
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([chat_id, user_id])
+}
+
+model chat_participants {
+  chat_id Int
+  user_id Int
+  chats   chats @relation(fields: [chat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users   users @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([chat_id, user_id])
+}
+
+model chats {
+  id                Int                 @id @default(autoincrement())
+  created_at        DateTime?           @default(now()) @db.Timestamp(6)
+
+  chat_participants chat_participants[]
+  messages          messages[]
+  chat_read_status  chat_read_status[]   // ← opposite relation for chat_read_status
+}
+
+model messages {
+  id         Int       @id @default(autoincrement())
+  chat_id    Int?
+  sender_id  Int?
+  content    String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  chats chats? @relation(fields: [chat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users users? @relation(fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model users {
+  id                Int                 @id @default(autoincrement())
+  username          String              @db.VarChar(50)
+  email             String              @unique @db.VarChar(255)
+  password_hash     String
+  token_version     Int                 @default(0)
+  created_at        DateTime?           @default(now()) @db.Timestamp(6)
+
+  chat_participants chat_participants[]
+  messages          messages[]
+  chat_read_status  chat_read_status[]   // ← opposite relation for chat_read_status
+}
